@@ -9,15 +9,19 @@ from collections import defaultdict
 #  Helper utilities                                                           #
 # --------------------------------------------------------------------------- #
 def _reads_writes(node: ast.stmt):
-    """Return (reads, writes) variable‑name sets for a single AST statement."""
+    """Return (reads, writes) variable-name sets for a single AST statement."""
     reads, writes = set(), set()
+
+    if isinstance(node, ast.FunctionDef):
+        writes.add(node.name)
+
     for n in ast.walk(node):
         if isinstance(n, ast.Name):
             if isinstance(n.ctx, ast.Load):
                 reads.add(n.id)
             elif isinstance(n.ctx, ast.Store):
                 writes.add(n.id)
-    # keep built‑ins out of the dependency graph
+
     reads.difference_update(dir(__builtins__))
     return reads, writes
 

@@ -1,27 +1,57 @@
+from typing import Callable, Iterable, TypeVar, overload, Union
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Iterable, TypeVar, Union
 
 T = TypeVar("T")
+R = TypeVar("R")
 
-def loop(iterable: Union[int, Iterable[T]], varname: str = ""):
+# Global context store (overridden via `with_context(...)`)
+_loop_context: dict = {}
+
+def with_context(**context):
     """
-    Parallel loop decorator.
+    Set global context variables for all upcoming loop() executions.
+    Useful when decorating functions that rely on outer-scope variables
+    (like those inside a @flow function).
+    """
+    global _loop_context
+    _loop_context = context
+
+
+@overload
+def loop(iterable: int, varname: str = "") -> Callable[[Callable[[int], R]], list[R]]: ...
+@overload
+def loop(iterable: Iterable[T], varname: str = "") -> Callable[[Callable[[T], R]], list[R]]: ...
+
+def loop(iterable: Union[int, Iterable[T]], varname: str = "", **explicit_context) -> Callable[[Callable[..., R]], list[R]]:
+    """
+    Execute a function over an iterable in parallel using threads.
+
+    Automatically passes any variables set via `with_context(...)`,
+    and also accepts manual keyword arguments to override those.
 
     Usage:
-        @loop(range(5))
-        def run(i): ...
+        with_context(query=query)
 
-        @loop(items, 'item')
-        def run(item): ...
+        @loop(items)
+        def process(item, query):
+            ...
+
+    Or:
+        @loop(items, query=query)
+        def process(item, query):
+            ...
     """
-    def wrapper(fn: Callable[[T], None]) -> None:
-        # Allow `loop(5)` as shorthand for `loop(range(5))`
+    def decorator(fn: Callable[..., R]) -> list[R]:
         if isinstance(iterable, int):
-            items = list(range(iterable))
+            items: list[T] = list(range(iterable))  # type: ignore
         else:
             items = list(iterable)
 
-        with ThreadPoolExecutor(max_workers=len(items)) as executor:
-            executor.map(fn, items)
+        # Merge in context from `with_context(...)` (can be overridden)
+        context = {**_loop_context, **explicit_context}
 
-    return wrapper
+        with ThreadPoolExecutor(max_workers=len(items)) as executor:
+            futures = [executor.submit(fn, item, **context) for item in items]
+            return [f.result() for f in futures]
+
+    return decorator
