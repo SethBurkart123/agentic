@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from .registry import _PROVIDER_REGISTRY
 from .prompt_builder import _build_structured_prompt
-from .parser import _parse_single
+from .parser import _parse_single, _extract_possible_xml
 
 import xmltodict
 import json
@@ -143,7 +143,8 @@ def generate(
 
     # -------- XML formatted output -----------------------------------------------------
     if format == "xml":
-        parsed_xml = xmltodict.parse(raw_response)
+        cleaned_response = _extract_possible_xml(raw_response)
+        parsed_xml = xmltodict.parse(cleaned_response)
 
         origin = get_origin(output)
 
