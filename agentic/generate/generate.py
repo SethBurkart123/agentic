@@ -27,6 +27,7 @@ from .registry import _PROVIDER_REGISTRY
 from .prompt_builder import _build_structured_prompt
 from .parser import _parse_single
 
+import xmltodict
 import json
 from typing import (
     Any,
@@ -39,7 +40,6 @@ from typing import (
     get_args,
     get_origin,
 )
-
 from pydantic import BaseModel
 
 ###############################################################################
@@ -143,29 +143,33 @@ def generate(
 
     # -------- XML formatted output -----------------------------------------------------
     if format == "xml":
-        try:
-            import xmltodict  # type: ignore
-        except ImportError as exc:  # pragma: no cover
-            raise ImportError(
-                "`xmltodict` is required to parse XML output. "
-                "Install it with `pip install xmltodict`."
-            ) from exc
-
         parsed_xml = xmltodict.parse(raw_response)
+
+        origin = get_origin(output)
 
         if origin is list:
             item_type = get_args(output)[0]  # type: ignore[index]
-            # Assume items are under <root><item>…</item></root> or similar
-            items = parsed_xml
-            for key in ("root", "items", "item"):
-                if isinstance(items, dict) and key in items:
-                    items = items[key]
-            if not isinstance(items, list):
-                items = [items]
+
+            # Recursively find the first list of dicts
+            def find_first_list_of_dicts(obj):
+                if isinstance(obj, list) and all(isinstance(i, dict) for i in obj):
+                    return obj
+                if isinstance(obj, dict):
+                    for v in obj.values():
+                        found = find_first_list_of_dicts(v)
+                        if found:
+                            return found
+                return None
+
+            items = find_first_list_of_dicts(parsed_xml)
+            if not items:
+                raise ValueError("Could not find a list of dicts to parse into BaseModel list")
+
             return [
                 item_type.parse_obj(item)  # type: ignore[attr-defined]
                 for item in items
             ]
+
         return _parse_single(parsed_xml, output)
 
     # ------------------------------------------------------------------ raw fallback
