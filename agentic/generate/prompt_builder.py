@@ -70,7 +70,6 @@ def _build_structured_prompt(
     instructions: Optional[List[str]],
     examples: Optional[List[Union[str, BaseModel]]],
     user_input: Optional[Dict[str, Any]],
-    output_schema: Optional[Type[BaseModel]],
     fmt: Literal["xml", "json"],
 ) -> str:
     """Convert structured‑prompt kwargs into a single user‑message string."""
@@ -88,8 +87,6 @@ def _build_structured_prompt(
             ]
         if user_input:
             payload["input"] = user_input
-        if output_schema:
-            payload["outputSchema"] = json.loads(output_schema.schema_json())
         return json.dumps(payload, indent=2)
 
     # ------------------------------------------------------------------- XML
@@ -123,10 +120,6 @@ def _build_structured_prompt(
     if user_input is not None:
         input_xml = _dict_to_xml(user_input)
         root_elements.append(f"<input>{input_xml}</input>")
-
-    if output_schema:
-        schema_json = json.dumps(json.loads(output_schema.schema_json()), indent=2)
-        root_elements.append(f"<outputSchema>{schema_json}</outputSchema>")
 
     combined_xml = "".join(root_elements)
     wrapped_xml = f"<root>{combined_xml}</root>"
