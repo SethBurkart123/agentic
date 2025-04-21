@@ -1,4 +1,4 @@
-from agentic import generate
+from agentic import generate, register_provider_alias
 from pydantic import BaseModel
 
 class NestedModel(BaseModel):
@@ -17,16 +17,17 @@ example_model_instance = ExampleModel(
     nestExample=NestedModel(input="nested", output=1)
 )
 
+register_provider_alias("ollama", type="openai", base_url="http://localhost:11434/v1", api_key="ollama")
+
 test = generate(
-    model="openai:gpt-3.5-turbo",
+    model="ollama:dolphin3:latest",
     instructions=[
         "Write a function that takes a string and returns the number of words in it."
     ],
-    examples=[
-        example_model_instance
-    ],
-    system="You are a helpful assistant."
+    #examples=[
+    #    example_model_instance
+    #],
+    system="You are a pirate. ARRRR! Respond as a pirate!"
 )
 
-# You might want to print or inspect the 'test' variable
 print(test)
