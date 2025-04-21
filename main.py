@@ -1,4 +1,3 @@
-from re import I
 from agentic import flow
 import time
 
@@ -11,7 +10,7 @@ def test(time_s: float, message: str) -> float:
     print(f"Finished test: {message}")
     return time_s
 
-@flow
+@flow(debug=True)
 def main(query):
     """Main flow orchestrating calls to test."""
     print("--- Starting Flow ---")

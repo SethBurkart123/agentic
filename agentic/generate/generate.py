@@ -1,26 +1,3 @@
-"""
-agentic.generate
-~~~~~~~~~~~~~~~~
-Unified, ergonomic interface for calling LLM providers with optional
-structured‑prompt building and typed response parsing.
-
-The public ``generate`` function exposes the following signature::
-
-    generate(
-        model="openai:gpt-4o",
-        prompt="Hi!",
-        # …see docstring for all args
-    )
-
-It supports:
-* Plain prompts
-* Optional ``system`` + ``chat_history``
-* Structured prompts built from ``instructions`` / ``examples`` / ``input`` /
-  ``output`` (pydantic schema) with XML or JSON formatting
-* Automatic provider resolution (default: ``openai``)
-* Automatic parsing back into ``BaseModel`` / ``List[BaseModel]`` when an
-  ``output`` schema is supplied.
-"""
 from __future__ import annotations
 
 from .registry import _PROVIDER_REGISTRY
@@ -30,7 +7,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Type,
     Union,
 )
 from pydantic import BaseModel
