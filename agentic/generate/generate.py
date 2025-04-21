@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict, List, Optional, Union
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel
 
 from .registry import _PROVIDER_REGISTRY
@@ -13,16 +14,12 @@ try:
 except ImportError:
     console = None  # Rich is optional
 
-###############################################################################
-# Public generate() API
-###############################################################################
-
 def generate(
     *,
     model: str,
     prompt: Optional[str] = None,
     system: Optional[str] = None,
-    chat_history: Optional[List[Dict[str, str]]] = None,
+    chat_history: Optional[List[ChatCompletionMessageParam]] = None,
     instructions: Optional[List[str]] = None,
     examples: Optional[List[Union[str, BaseModel]]] = None,
     input: Optional[Dict[str, Any]] = None,
@@ -65,9 +62,9 @@ def generate(
             raise ValueError("`prompt` is required when not using structured prompt options.")
         final_user_message = prompt
 
-    messages: List[Dict[str, str]] = []
+    messages: List[ChatCompletionMessageParam] = []
     if chat_history:
-        messages.extend([dict(m) for m in chat_history])
+        messages.extend(chat_history)
 
     if system is not None:
         messages.append({"role": "system", "content": system})

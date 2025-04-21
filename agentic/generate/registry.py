@@ -1,10 +1,11 @@
 import os
 from typing import Any, Dict, List, Callable
 from dotenv import load_dotenv
+from openai.types.chat import ChatCompletionMessageParam
 
 load_dotenv()
 
-_ProviderFn = Callable[[str, List[Dict[str, str]]], str]
+_ProviderFn = Callable[[str, List[ChatCompletionMessageParam]], str]
 
 class _Provider:
     def __init__(self, name: str, generate_fn: _ProviderFn, config: Dict[str, Any] | None = None):
@@ -12,7 +13,7 @@ class _Provider:
         self._generate_fn = generate_fn
         self._config: Dict[str, Any] = config or {}
 
-    def generate(self, model_id: str, messages: List[Dict[str, str]], **kwargs) -> str:
+    def generate(self, model_id: str, messages: List[ChatCompletionMessageParam], **kwargs) -> str:
         combined_kwargs = {**self._config, **kwargs}
         return self._generate_fn(model_id, messages, **combined_kwargs)
 

@@ -1,11 +1,11 @@
+from openai.types.chat import ChatCompletionMessageParam
 from agentic.generate.registry import register_provider
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 @register_provider("openai", needs_api_key=True, needs_base_url=True)
-
 def _openai_generate(
     model_id: str,
-    messages: List[Dict[str, str]],
+    messages: List[ChatCompletionMessageParam],
     temperature: float = 0.7,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
