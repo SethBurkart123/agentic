@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import time
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel
+
 from .registry import _PROVIDER_REGISTRY
 from .prompt_builder import _build_structured_prompt
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-)
-from pydantic import BaseModel
+
+try:
+    from rich.console import Console
+    console = Console()
+except ImportError:
+    console = None  # Rich is optional
 
 ###############################################################################
 # Public generate() API
@@ -21,25 +23,24 @@ def generate(
     prompt: Optional[str] = None,
     system: Optional[str] = None,
     chat_history: Optional[List[Dict[str, str]]] = None,
-    # Structured prompt options
     instructions: Optional[List[str]] = None,
     examples: Optional[List[Union[str, BaseModel]]] = None,
-    input: Optional[Dict[str, Any]] = None,  # noqa: A002  (shadowed by built‑in)
-    # Generation controls
+    input: Optional[Dict[str, Any]] = None,
     temperature: float = 0.7,
+    debug: bool = False,
+    max_retries: int = 3,
+    retry_backoff_base: float = 1.5,
     **kwargs,
 ) -> str:
     """
     Generate a response from an LLM.
 
-    Parameters mirror the detailed specification provided in the README /
-    design doc.
+    If `debug` is True, prints detailed logs using rich.
 
     Returns
     -------
     str
     """
-    # ------------------------------------------------------------------ setup
     if ":" not in model:
         raise ValueError("`model` must be in the format '<provider>:<model-id>'")
     provider_name, model_id = model.split(":", 1)
@@ -51,24 +52,21 @@ def generate(
             f"Available providers: {', '.join(_PROVIDER_REGISTRY)}"
         )
 
-    # ------------------------------------------------------------------ build final user message
     structured = any([instructions, examples, input])
     if structured:
         final_user_message = _build_structured_prompt(
             instructions=instructions,
             examples=examples,
             user_input=input,
-            fmt="json" if format == "json" else "xml",
+            fmt="json" if kwargs.get("format") == "json" else "xml",
         )
     else:
         if prompt is None:
             raise ValueError("`prompt` is required when not using structured prompt options.")
         final_user_message = prompt
 
-    # ------------------------------------------------------------------ assemble chat
     messages: List[Dict[str, str]] = []
     if chat_history:
-        # Make a shallow copy to avoid mutating caller's list
         messages.extend([dict(m) for m in chat_history])
 
     if system is not None:
@@ -76,12 +74,36 @@ def generate(
 
     messages.append({"role": "user", "content": final_user_message})
 
-    # ------------------------------------------------------------------ call provider
-    raw_response: str = provider.generate(
-        model_id,
-        messages,
-        temperature=temperature,
-        **kwargs,
-    )
+    # ------------------------------------------------------------------ call provider with retry
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            if debug and console:
+                console.log(f"[bold blue]Attempt {attempt+1}[/] → Calling provider '{provider_name}'")
 
-    return raw_response
+            raw_response: str = provider.generate(
+                model_id,
+                messages,
+                temperature=temperature,
+                **kwargs,
+            )
+
+            if debug and console:
+                console.log("[green]Success[/] ✅ Response received.")
+            return raw_response
+
+        except Exception as e:
+            wait_time = retry_backoff_base ** attempt
+            if debug and console:
+                console.log(f"[yellow]Warning[/]: Attempt {attempt+1} failed with error: {e}")
+                if attempt < max_retries - 1:
+                    console.log(f"[italic]Retrying in {wait_time:.1f} seconds...[/]")
+            time.sleep(wait_time)
+            attempt += 1
+
+    # Final failure
+    error_message = f"Error: Failed to generate response from provider '{provider_name}' after {max_retries} attempts."
+    if debug and console:
+        console.log(f"[red]{error_message}[/]")
+
+    raise RuntimeError(error_message)
