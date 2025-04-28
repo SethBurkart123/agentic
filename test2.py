@@ -1,7 +1,7 @@
 from agentic import generate
 
 print(generate(
-    model="exa:exa",
-    prompt="What makes some LLMs so much better than others?",
+    model="groq:llama-3.1-8b-instant",
+    prompt="Hi there!",
     debug=True
 ))
